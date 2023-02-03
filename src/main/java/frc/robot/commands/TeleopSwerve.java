@@ -1,12 +1,14 @@
 package frc.robot.commands;
 
+import frc.robot.Constants.Misc;
 import frc.robot.Constants.SwerveConstants;
-import frc.robot.Constants;
 import frc.robot.subsystems.Swerve;
-import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.math.filter.SlewRateLimiter;
+
+import java.util.function.BooleanSupplier;
+
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.CommandBase;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 
 
 public class TeleopSwerve extends CommandBase {
@@ -14,53 +16,64 @@ public class TeleopSwerve extends CommandBase {
     private double rotation;
     private Translation2d translation;
     private boolean fieldRelative;
+    private boolean openLoop;
     
-    private Swerve swerveDrive;
-    private Joystick controller;
-    private int yAxis;
-    private int xAxis;
+    private Swerve swerve;
+    private CommandXboxController controller;
+
+    private int forwardAxis; 
+    private int leftAxis;
     private int rotationAxis;
 
-    private SlewRateLimiter xLimiter = Constants.X_LIMITER;
-    private SlewRateLimiter yLimiter = Constants.Y_LIMITER;
-    private SlewRateLimiter rotationLimiter = Constants.ROTATION_LIMITER;
+    // Should the swerve drive slower than before or not
+    private BooleanSupplier slowMode; 
 
     /**
      * Driver control
      */
-    public TeleopSwerve(Swerve swerveDrive, Joystick controller, int yAxis, int xAxis, int rotationAxis, boolean fieldRelative) {
-        this.swerveDrive = swerveDrive;
-        addRequirements(swerveDrive);
+    public TeleopSwerve(Swerve swerve, CommandXboxController controller, int forwardAxis, int leftAxis, int rotationAxis, boolean fieldRelative, boolean openLoop, BooleanSupplier slowMode) {
+        this.swerve = swerve;
+        addRequirements(swerve);
 
         this.controller = controller;
-        this.yAxis = yAxis;
-        this.xAxis = xAxis;
+        this.forwardAxis = forwardAxis;
+        this.leftAxis = leftAxis;
         this.rotationAxis = rotationAxis;
         this.fieldRelative = fieldRelative;
+        this.openLoop = openLoop;
+        this.slowMode = slowMode ;
+    }
+
+    @Override
+    public void initialize() {
+        System.out.println("Teleop Swerve started (or also referred to as):");
+        System.out.println("vroom vroom");
     }
 
     @Override
     public void execute() {
-        // TODO: Check if this invert is necessary 
-        double yInput = -controller.getRawAxis(yAxis);
-        double xInput = -controller.getRawAxis(xAxis);
-        double rotationInput = -controller.getRawAxis(rotationAxis);
+        // See https://docs.wpilib.org/en/stable/docs/software/advanced-controls/geometry/coordinate-systems.html
+        double xAxis = -controller.getRawAxis(forwardAxis); // Postive X value means forward / into the field
+        double yAxis = -controller.getRawAxis(leftAxis); // Positive Y value means to the left side of the field 
+        double rAxis = -controller.getRawAxis(rotationAxis); // Positive value means CCW rotation
         
-        /* Deadbands (If the joystick input is too low to be signifcant, protect the motors from trying to move really small distances) */
-        yInput = (Math.abs(yInput) < Constants.stickDeadband) ? 0 : yInput;
-        xInput = (Math.abs(xInput) < Constants.stickDeadband) ? 0 : xInput;
-        rotationInput = (Math.abs(rotationInput) < Constants.stickDeadband) ? 0 : rotationInput;
+        /* Deadbands */
 
-        // Slew Rate Limiting (Limiting how big of a change in joystick inputs can happen every second)
-        xInput = xLimiter.calculate(xInput);
-        yInput = yLimiter.calculate(yInput);
-        rotationInput = rotationLimiter.calculate(rotationInput);
+        yAxis = (Math.abs(yAxis) < Misc.stickDeadband) ? 0 : yAxis;
+        xAxis = (Math.abs(xAxis) < Misc.stickDeadband) ? 0 : xAxis;
+        rAxis = (Math.abs(rAxis) < Misc.stickDeadband) ? 0 : rAxis;
         
-        // Calculates the movement of the robot on the X,Y plane, X being forward/backwards, and Y being left/right.
-        translation = new Translation2d(yInput, xInput).times(SwerveConstants.MAX_SPEED);
-        // Calculates the rotation movement.
-        rotation = rotationInput * SwerveConstants.MAX_ANGULAR_VELOCITY;
-
-        swerveDrive.teleopDrive(translation, rotation, fieldRelative, true);
+        
+        if(!slowMode.getAsBoolean()){
+            translation = new Translation2d(xAxis, yAxis).times(SwerveConstants.maxSpeed);
+            rotation = rAxis * SwerveConstants.maxAngularVelocity;
+            swerve.drive(translation, rotation, fieldRelative, openLoop);
+        }
+        else
+        {
+            translation = new Translation2d(xAxis, yAxis).times(SwerveConstants.slowModeSpeed);
+            rotation = rAxis * SwerveConstants.slowModeAngularVelocity;
+            swerve.drive(translation, rotation, fieldRelative, openLoop);
+        }
     }
 }

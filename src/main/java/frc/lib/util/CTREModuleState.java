@@ -17,7 +17,6 @@ public class CTREModuleState {
     double targetAngle = placeInAppropriate0To360Scope(currentAngle.getDegrees(), desiredState.angle.getDegrees());
     double targetSpeed = desiredState.speedMetersPerSecond;
     double delta = targetAngle - currentAngle.getDegrees();
-    
     if (Math.abs(delta) > 90){
         targetSpeed = -targetSpeed;
         targetAngle = delta > 90 ? (targetAngle -= 180) : (targetAngle += 180);
@@ -36,8 +35,7 @@ public class CTREModuleState {
     private static double placeInAppropriate0To360Scope(double scopeReference, double newAngle) {
       double lowerBound;
       double upperBound;
-      double lowerOffset = scopeReference % 360; // If the angle is 360 degrees, we know it's the same as 0. which what modulo does.
-
+      double lowerOffset = scopeReference % 360;
       if (lowerOffset >= 0) {
           lowerBound = scopeReference - lowerOffset;
           upperBound = scopeReference + (360 - lowerOffset);
@@ -51,8 +49,6 @@ public class CTREModuleState {
       while (newAngle > upperBound) {
           newAngle -= 360;
       }
-
-      // If the new target angle is more than 180 degrees away from one another, we should flip it.
       if (newAngle - scopeReference > 180) {
           newAngle -= 360;
       } else if (newAngle - scopeReference < -180) {
